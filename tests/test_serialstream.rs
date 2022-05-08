@@ -80,10 +80,10 @@ async fn send_recv() {
     let fixture = setup_virtual_serial_ports().await;
 
     let mut sender = tokio_serial::new(fixture.port_a, 9600)
-        .open_native_async()
+        .open_sync()
         .expect("unable to open serial port");
     let mut receiver = tokio_serial::new(fixture.port_b, 9600)
-        .open_native_async()
+        .open_sync()
         .expect("unable to open serial port");
 
     log::trace!("sending test message");

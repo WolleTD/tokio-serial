@@ -510,21 +510,22 @@ mod io {
     }
 }
 
-/// An extension trait for serialport::SerialPortBuilder
+/// An extension trait for SerialPortBuilder to open a `SerialStream` from it.
 ///
-/// This trait adds one method to SerialPortBuilder:
-///
-/// - open_native_async
-///
-/// This method mirrors the `open_native` method of SerialPortBuilder
+/// This trait adds an `open_sync` method to `SerialPortBuilder` that will
+/// open a `tokio_serial::SerialStream` from the configuration.
 pub trait SerialPortBuilderExt {
-    /// Open a platform-specific interface to the port with the specified settings
-    fn open_native_async(self) -> Result<SerialStream>;
+    /// Open a platform-independent interface to the port with the specified settings
+    fn open_sync(self) -> Result<SerialStream>;
+
+    /// Open a platform-independent interface to the port with the specified settings
+    #[deprecated(since = "5.5", note="use `open_sync` instead")]
+    fn open_native_async(self) -> Result<SerialStream> where Self: Sized { self.open_sync() }
 }
 
 impl SerialPortBuilderExt for SerialPortBuilder {
-    /// Open a platform-specific interface to the port with the specified settings
-    fn open_native_async(self) -> Result<SerialStream> {
+    /// Open a platform-independent interface to the port with the specified settings
+    fn open_sync(self) -> Result<SerialStream> {
         SerialStream::open(&self)
     }
 }
