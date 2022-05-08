@@ -18,7 +18,6 @@ msrv = "1.46.0"
 [features]
 default = []
 libudev = ["mio-serial/libudev"]
-codec = ["tokio-util/codec", "bytes"]
 
 [dependencies.futures]
 version = "0.3"
@@ -28,30 +27,24 @@ version = "^1.8"
 default-features = false
 features = ["net", "rt"]
 
-[dependencies.tokio-util]
-version = "0.7"
-default-features = false
-optional = true
-
 [dependencies.mio-serial]
 version = "5.0.2"
 default-features = false
 
-[dependencies.bytes]
-version = "1"
-default-features = false
-optional = true
-
-[dependencies.log]
+[dev-dependencies.log]
 version = "0.4"
-
-[dependencies.cfg-if]
-version = "1"
 
 [dev-dependencies.tokio]
 version = "^1.8"
-features = ["macros", "process", "time", "fs", "io-util"]
+features = ["macros", "rt-multi-thread", "process", "time", "fs", "io-util"]
 default-features = false
+
+[dev-dependencies.bytes]
+version = "1"
+
+[dev-dependencies.tokio-util]
+version = "0.7"
+features = ["codec"]
 
 [dev-dependencies.env_logger]
 version = "0.9.0"
@@ -59,4 +52,3 @@ version = "0.9.0"
 [[example]]
 name = "serial_println"
 path = "examples/serial_println.rs"
-required-features = ["codec"]
