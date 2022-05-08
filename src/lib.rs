@@ -14,7 +14,9 @@ pub use mio_serial::{
 };
 
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::task::JoinHandle;
 
+use std::future::Future;
 use std::io::{Read, Result as IoResult, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -510,22 +512,82 @@ mod io {
     }
 }
 
+/// Future for `SerialPortBuilderExt::open_async`
+///
+/// You can use this future for your own extension traits:
+/// ```
+/// use tokio_serial::{Result, SerialStream, SerialPortBuilder, Open};
+///
+/// struct MySerialStream(SerialStream);
+///
+/// impl MySerialStream {
+///     pub fn open(builder: &SerialPortBuilder) -> Result<Self> {
+///         SerialStream::open(builder).map(|stream| Self(stream))
+///     }
+/// }
+///
+/// trait SerialPortBuilderExt {
+///     fn open_wrapped(self) -> Open<MySerialStream>;
+/// }
+///
+/// impl SerialPortBuilderExt for SerialPortBuilder {
+///     fn open_wrapped(self) -> Open<MySerialStream> {
+///         Open::new(move || MySerialStream::open(&self))
+///     }
+/// }
+///
+/// async fn open_stream() -> Result<MySerialStream> {
+///     tokio_serial::new("/dev/ttyS0", 112500).open_wrapped().await
+/// }
+/// ```
+pub struct Open<T>(JoinHandle<Result<T>>);
+
+impl<T> Open<T> {
+    /// Create a new `Open` future from a potentially blocking Fn
+    pub fn new<F>(func: F) -> Self
+    where
+        F: FnOnce() -> Result<T> + Send + 'static,
+        T: Send + 'static
+    {
+        Open(tokio::task::spawn_blocking(func))
+    }
+}
+
+impl<T> Future for Open<T> {
+    type Output = Result<T>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.0).poll(cx).map(|res| res.unwrap())
+    }
+}
+
 /// An extension trait for SerialPortBuilder to open a `SerialStream` from it.
 ///
-/// This trait adds an `open_sync` method to `SerialPortBuilder` that will
-/// open a `tokio_serial::SerialStream` from the configuration.
+/// This trait adds `open_sync` and `open_async` methods to `SerialPortBuilder` that
+/// will open a `tokio_serial::SerialStream` from the configuration.
 pub trait SerialPortBuilderExt {
     /// Open a platform-independent interface to the port with the specified settings
     fn open_sync(self) -> Result<SerialStream>;
 
     /// Open a platform-independent interface to the port with the specified settings
-    #[deprecated(since = "5.5", note="use `open_sync` instead")]
+    #[deprecated(since = "5.5", note="use `open_sync` or `open_async` instead")]
     fn open_native_async(self) -> Result<SerialStream> where Self: Sized { self.open_sync() }
+
+    /// Open a platform-independent interface to the port with the specified settings
+    ///
+    /// Equivalent to:
+    /// ```ignore
+    /// async fn open_async(self) -> Result<SerialStream>;
+    /// ```
+    fn open_async(self) -> Open<SerialStream>;
 }
 
 impl SerialPortBuilderExt for SerialPortBuilder {
-    /// Open a platform-independent interface to the port with the specified settings
     fn open_sync(self) -> Result<SerialStream> {
         SerialStream::open(&self)
+    }
+
+    fn open_async(self) -> Open<SerialStream> {
+        Open::new(move || SerialStream::open(&self))
     }
 }
